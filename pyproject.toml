@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sd10"
+name = "pysd10"
 version = "0.2.0"
 description = "Python client for the Epson SD-10 spectrophotometer over Bluetooth LE (spectrum and L*a*b*)"
 readme = "README.md"
