@@ -1,0 +1,103 @@
+Metadata-Version: 2.4
+Name: sd10
+Version: 0.1.0
+Summary: Python client for the Epson SD-10 spectrophotometer over Bluetooth LE (spectrum and L*a*b*)
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: bleak>=0.21
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+
+# sd10
+
+Python client for the **Epson SD-10** spectrophotometer over Bluetooth LE: take measurements and get
+the 31-band spectrum (400–700 nm) and CIE L\*a\*b\* exactly as the Epson Spectrometer app computes it.
+
+## Install
+
+```
+pip install -e path\to\sd10_client
+```
+
+Requires Python 3.9+ and [bleak](https://github.com/hbldh/bleak) (installed automatically).
+
+## Quick start (blocking — scripts, Jupyter)
+
+```python
+import sd10
+
+result = sd10.measure_once()            # connect, measure, disconnect
+print(result.lab)                       # Lab(L=..., a=..., b=...)
+
+with sd10.connect_sync() as dev:        # keep the connection open
+    r = dev.measure(illuminant="D65", observer=10, m_factor=0)
+    print(r.lab, r.lch, r.spectrum)
+    print(r.lab_under("A", 2))          # same reading, other illuminant
+
+    for r in dev.button_measurements():  # react to the device's own button
+        print(r.lab)
+```
+
+## Async
+
+```python
+import asyncio, sd10
+
+async def main():
+    async with sd10.connect() as dev:          # strongest SD-10, or connect("40:84:32:52:FD:0F")
+        print(await dev.get_info())
+        r = await dev.measure()
+        print(r.lab)
+        async for r in dev.button_measurements():
+            print(r.lab)
+
+asyncio.run(main())
+```
+
+## API overview
+
+| | |
+|---|---|
+| `scan()` / `scan_sync()` | nearby SD-10s (`address`, `name`, `rssi`) |
+| `connect(address=None)` / `connect_sync(...)` | connect and open a session; on exit the device is handed back to its own UI |
+| `dev.measure(illuminant, observer, m_factor, save)` | one spot measurement → `MeasurementResult` |
+| `dev.button_measurements()` | iterator of results taken with the device button |
+| `dev.calibrate()` | white calibration → `Status` |
+| `dev.get_info()`, `get_status()`, `get_name()`, `get_serial()`, `get_firmware_version()` | device info |
+| `dev.get_setting(Setting.X)` / `set_setting(...)` | buzzer, panel direction, auto power-off, language |
+| `dev.set_clock()`, `dev.set_name(...)` | |
+| `dev.transact(frame)` | raw command (see `sd10.protocol`) |
+| `MeasurementResult` | `.lab`, `.lch`, `.lab_under(ill, obs)`, `.spectrum`, `.wavelengths`, `.timestamp`, `.to_dict()` |
+| `spectrum_to_lab(spectrum, illuminant, observer)` | offline conversion |
+| `delta_e_2000(lab1, lab2)`, `delta_e_76(...)`, `Lab.delta_e(other)` | colour difference |
+
+Illuminants: D50, D65, A, F1, F2, F3, F7–F12. Observers: 2, 10.
+
+Errors derive from `sd10.SD10Error` (`DeviceNotFound`, `DeviceRefused`, `SD10Timeout`, `MeasurementFailed`).
+Enable `logging.getLogger("sd10").setLevel(logging.DEBUG)` to see all traffic.
+
+## Command line
+
+```
+sd10 scan
+sd10 measure --illuminant D65 --observer 10 [--spectrum] [--json]
+sd10 listen          # L*a*b* for every button press
+sd10 info | calibrate | set-time | set-name NAME | raw ID TYPE [HEX]
+```
+
+(`python -m sd10 ...` works without installing the script; global options such as `-a ADDRESS`
+and `-v` go before the command.)
+
+## Notes
+
+- The SD-10 accepts one host at a time — close the Epson app on your phone first.
+- A random 16-byte host id is kept in `~/.sd10_app_id`, like the app does.
+- L\*a\*b\* reproduces Epson's `librmcc` conversion to ~1e-6 ΔE; bands outside 400–700 nm count as
+  zero, so a perfect white reads L\* ≈ 99.99, same as the app.
+
+## Tests
+
+```
+pip install -e path\to\sd10_client[test]
+pytest path\to\sd10_client\tests
+```
