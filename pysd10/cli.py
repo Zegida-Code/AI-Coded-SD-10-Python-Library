@@ -1,4 +1,4 @@
-"""Command-line interface: ``python -m sd10 ...`` or ``sd10 ...`` once installed."""
+"""Command-line interface: ``python -m pysd10 ...`` or ``pysd10 ...`` once installed."""
 from __future__ import annotations
 
 import argparse
@@ -230,7 +230,7 @@ _COMMANDS = {"info": _info, "measure": _measure, "calibrate": _calibrate, "liste
 
 
 def main(argv=None) -> None:
-    ap = argparse.ArgumentParser(prog="sd10", description="Epson SD-10 spectrophotometer over Bluetooth LE")
+    ap = argparse.ArgumentParser(prog="pysd10", description="Epson SD-10 spectrophotometer over Bluetooth LE")
     ap.add_argument("-a", "--address", help="BLE address (default: strongest SD-10 found)")
     ap.add_argument("-t", "--timeout", type=float, default=8.0, help="scan timeout (s)")
     ap.add_argument("-v", "--verbose", action="store_true", help="hex-dump all traffic to stderr")
@@ -307,7 +307,7 @@ def main(argv=None) -> None:
     args = ap.parse_args(argv)
 
     logging.basicConfig(format="  [%(name)s] %(message)s", stream=sys.stderr)
-    logging.getLogger("sd10").setLevel(logging.DEBUG if args.verbose else logging.WARNING)
+    logging.getLogger("pysd10").setLevel(logging.DEBUG if args.verbose else logging.WARNING)
     try:
         asyncio.run(_run(args))
     except SD10Error as ex:

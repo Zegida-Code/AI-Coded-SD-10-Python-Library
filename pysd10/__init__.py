@@ -2,10 +2,10 @@
 
 Async::
 
-    import asyncio, sd10
+    import asyncio, pysd10
 
     async def main():
-        async with sd10.connect() as dev:
+        async with pysd10.connect() as dev:
             result = await dev.measure(illuminant="D65", observer=10)
             print(result.lab, result.lch)
 
@@ -13,10 +13,10 @@ Async::
 
 Blocking::
 
-    import sd10
-    print(sd10.measure_once().lab)
+    import pysd10
+    print(pysd10.measure_once().lab)
 
-    with sd10.connect_sync() as dev:
+    with pysd10.connect_sync() as dev:
         for result in dev.button_measurements():
             print(result.lab)
 """
@@ -30,7 +30,7 @@ from .export import aco_bytes, export_aco, read_aco
 from .protocol import ColorGroup, Event, MeasurementResult, Method, Setting, Status
 from .sync import SyncSD10, connect_sync, measure_once, scan_sync
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"  # single source of truth: pyproject.toml reads it (bump here for a release)
 
 __all__ = [
     "SD10", "connect", "scan", "find_device", "load_app_id", "DeviceInfo", "FoundDevice",

@@ -4,20 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pysd10"
-version = "0.2.1"
+dynamic = ["version"]
 description = "Python client for the Epson SD-10 spectrophotometer over Bluetooth LE (spectrum and L*a*b*)"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["bleak>=0.21"]
+keywords = ["epson", "sd-10", "spectrophotometer", "colorimeter", "bluetooth", "ble", "cielab", "color"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Multimedia :: Graphics",
+]
 
 [project.optional-dependencies]
 test = ["pytest"]
 
 [project.scripts]
-sd10 = "sd10.cli:main"
+pysd10 = "pysd10.cli:main"
 
 [tool.setuptools]
-packages = ["sd10"]
+packages = ["pysd10", "pysd10.data"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pysd10.__version__"}
 
 [tool.setuptools.package-data]
-sd10 = ["data/*.json", "py.typed"]
+pysd10 = ["py.typed"]
+"pysd10.data" = ["*.json"]

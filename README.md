@@ -11,6 +11,10 @@ pip install pysd10
 
 Requires Python 3.9+ and [bleak](https://github.com/hbldh/bleak) (installed automatically).
 
+> **Upgrading from 0.2.x:** the module was renamed to match the package. Change `import sd10` to
+> `import pysd10` (or `import pysd10 as sd10` to keep existing code working) and the `sd10` command to
+> `pysd10`. Your saved host id is picked up automatically.
+
 ## Quick start (blocking — scripts, Jupyter)
 
 ```python
@@ -76,9 +80,9 @@ asyncio.run(main())
 
 Illuminants: D50, D65, A, F1, F2, F3, F7–F12. Observers: 2, 10.
 
-Errors derive from `pysd10.pysd10Error` (`DeviceNotFound`, `DeviceRefused`, `pysd10Timeout`, `MeasurementFailed`,
+Errors derive from `pysd10.SD10Error` (`DeviceNotFound`, `DeviceRefused`, `SD10Timeout`, `MeasurementFailed`,
 `CoverClosed` — raised instead of measuring when the cover is shut, because the device would just repeat its
-previous reading).
+previous reading — `CalibrationNeeded`, and `CoverOpen` when calibrating with the cover open).
 Enable `logging.getLogger("pysd10").setLevel(logging.DEBUG)` to see all traffic.
 
 ## Command line

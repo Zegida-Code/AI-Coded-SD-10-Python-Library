@@ -1,12 +1,12 @@
-﻿"""Offline tests. Byte vectors come from libmunsell-lib.so run under emulation and from a real SD-10."""
+"""Offline tests. Byte vectors come from libmunsell-lib.so run under emulation and from a real SD-10."""
 import asyncio
 import datetime as dt
 import struct
 
 import pytest
 
-import sd10
-from sd10 import protocol as p
+import pysd10
+from pysd10 import protocol as p
 
 H = bytes.fromhex
 
@@ -70,9 +70,9 @@ def test_result_record():
 
 # ---- colour (values from librmcc.so under emulation) --------------------------------------------
 def test_lab_matches_native():
-    grey = sd10.spectrum_to_lab([0.18] * 31, "D50", 2)
+    grey = pysd10.spectrum_to_lab([0.18] * 31, "D50", 2)
     assert grey == pytest.approx((49.488325787284005, -0.078772844850028, 0.024830189680002945), abs=1e-5)
-    white = sd10.spectrum_to_lab([1.0] * 31)
+    white = pysd10.spectrum_to_lab([1.0] * 31)
     assert white == pytest.approx((99.9862176321324, -0.13951439764997575, 0.04397668972000446), abs=1e-5)
 
 
@@ -84,7 +84,7 @@ def test_lab_matches_native():
     ((2.0776, 0.0795, -1.1350), (0.9033, -0.0636, -0.5514), 0.9082),
 ])
 def test_ciede2000(l1, l2, de):
-    assert sd10.delta_e_2000(l1, l2) == pytest.approx(de, abs=1e-4)
+    assert pysd10.delta_e_2000(l1, l2) == pytest.approx(de, abs=1e-4)
 
 
 # ---- transport, against a scripted fake device --------------------------------------------------
@@ -147,17 +147,17 @@ class FakeBle:
 def test_calibration_and_readiness_checks():
     async def run():
         ble = FakeBle()
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         out = []
         ble.calibration = 0
         try:
             await dev.measure(timeout=2)
-        except sd10.CalibrationNeeded:
+        except pysd10.CalibrationNeeded:
             out.append("needs calibration")
         try:
             await dev.calibrate(timeout=2)            # cover open -> refused
-        except sd10.CoverOpen:
+        except pysd10.CoverOpen:
             out.append("cover open")
         ble.cover_closed = True
         st = await dev.calibrate(timeout=2)
@@ -172,7 +172,7 @@ def test_calibration_and_readiness_checks():
 
 def test_connect_retries_cancelled_notify(monkeypatch):
     """Windows sometimes cancels the CCCD write right after connecting; connect() must retry."""
-    import sd10.client as c
+    import pysd10.client as c
     made = []
 
     class FlakyBle(FakeBle):
@@ -227,7 +227,7 @@ def test_button_press_makes_host_run_measurement():
     """In a session the device only reports MEASURE_BUTTON_PUSH (C2); the host must run the measurement."""
     async def run():
         ble = FakeBle()
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         await dev.open_session()
         await dev.measure(illuminant="D65", observer=10)          # remembered for button presses
@@ -251,10 +251,10 @@ def test_measure_refuses_when_cover_closed():
     async def run():
         ble = FakeBle()
         ble.cover_closed = True
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         await dev.open_session()
-        with pytest.raises(sd10.CoverClosed):
+        with pytest.raises(pysd10.CoverClosed):
             await dev.measure(timeout=2)
         # button presses with the cover closed are reported and skipped, not fatal
         ble.cover_closed = True
@@ -281,7 +281,7 @@ def test_history_encoding():  # native CommandBuilder output
 
 
 def test_group_encoding():  # native CreateSetGroupInfomation output
-    g = p.ColorGroup(slot=4, name="Test", colors=[sd10.Lab(1, 2, 3)], illuminant="F11", observer=10, m_factor=2,
+    g = p.ColorGroup(slot=4, name="Test", colors=[pysd10.Lab(1, 2, 3)], illuminant="F11", observer=10, m_factor=2,
                      diff_formula="DE76", tolerance=1.5, patch_border=True, hardware_id=0x1234)
     assert p.encode_set_groups([g]) == (H("0043151345000000 02 04 3412 04 0e3f292e") + b"\x5a" * 38 +
                                         H("01 01 02 1b 0a 03 00007041 0000c842 00004843 00009643"))
@@ -289,9 +289,9 @@ def test_group_encoding():  # native CreateSetGroupInfomation output
     back = p.parse_groups(p.encode_set_groups([g])[8:] + H("0102"))
     assert back == [g]
     with pytest.raises(ValueError):
-        p.encode_group_record(sd10.ColorGroup(slot=5, name="x", colors=[sd10.Lab(1, 2, 3)]))
+        p.encode_group_record(pysd10.ColorGroup(slot=5, name="x", colors=[pysd10.Lab(1, 2, 3)]))
     with pytest.raises(ValueError):
-        p.encode_group_record(sd10.ColorGroup(slot=1, name="x", colors=[]))
+        p.encode_group_record(pysd10.ColorGroup(slot=1, name="x", colors=[]))
     assert p._truncate_utf8("ü" * 30, 42) == "ü".encode() * 21  # cut on a character boundary
 
 
@@ -335,12 +335,12 @@ class GroupBle(FakeBle):
 def test_group_management_flow():
     async def run():
         ble = GroupBle()
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         assert await dev.get_groups() == []
-        stored = await dev.set_group(sd10.ColorGroup(2, "Wall paint", [sd10.Lab(50, 1, 2), sd10.Lab(60, -3, 4)],
+        stored = await dev.set_group(pysd10.ColorGroup(2, "Wall paint", [pysd10.Lab(50, 1, 2), pysd10.Lab(60, -3, 4)],
                                                      illuminant="D65", observer=10, tolerance=2.0))
-        await dev.set_group(sd10.ColorGroup(4, "Logo", [sd10.Lab(30, 40, -50)]))
+        await dev.set_group(pysd10.ColorGroup(4, "Logo", [pysd10.Lab(30, 40, -50)]))
         groups = await dev.get_groups()
         await dev.delete_group(4)
         after = await dev.get_groups()
@@ -356,9 +356,9 @@ def test_group_management_flow():
 def test_add_and_remove_group_colours():
     async def run():
         ble = GroupBle()
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
-        orig = await dev.set_group(sd10.ColorGroup(3, "Paint", [sd10.Lab(50, 1, 2)], illuminant="D65", observer=10,
+        orig = await dev.set_group(pysd10.ColorGroup(3, "Paint", [pysd10.Lab(50, 1, 2)], illuminant="D65", observer=10,
                                                    diff_formula="DE76", tolerance=2.0))
         reading = p.parse_result_record(_record())          # 0.18 grey spectrum, recorded under D50/2
         added = await dev.add_to_group(3, [(60, -3, 4), reading])
@@ -369,13 +369,13 @@ def test_add_and_remove_group_colours():
                      lambda: dev.remove_from_group(3, [0, 1])):                      # would leave none
             try:
                 await call()
-            except (sd10.SD10Error, ValueError) as ex:
+            except (pysd10.SD10Error, ValueError) as ex:
                 errors.append(type(ex).__name__)
         return orig, added, removed, errors, await dev.get_groups()
     orig, added, removed, errors, final = asyncio.run(run())
     assert len(added.colors) == 3 and added.colors[1] == pytest.approx((60, -3, 4))
     # the reading is converted under the palette's D65/10, not the D50/2 it was measured with
-    assert added.colors[2] == pytest.approx(sd10.spectrum_to_lab([0.18] * 31, "D65", 10), abs=1e-4)
+    assert added.colors[2] == pytest.approx(pysd10.spectrum_to_lab([0.18] * 31, "D65", 10), abs=1e-4)
     assert (added.name, added.illuminant, added.observer, added.diff_formula, added.hardware_id) == \
         (orig.name, orig.illuminant, orig.observer, orig.diff_formula, orig.hardware_id)
     assert len(removed.colors) == 2 and removed.colors[0] == pytest.approx((60, -3, 4))
@@ -404,19 +404,19 @@ class ScanBle(GroupBle):
 
 
 def _grey_lab(g, ill="D50", obs=2):
-    return sd10.spectrum_to_lab([g] * 31, ill, obs)
+    return pysd10.spectrum_to_lab([g] * 31, ill, obs)
 
 
 def test_scan_row_plain_and_compared():
     greys = [0.1, 0.3, 0.5, 0.7]
     async def run():
         ble = ScanBle(greys)
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         plain = await dev.scan_row(patches=4, wait_for_button=False, timeout=2)
         mode_plain = dict(ble.mode)
         expected = [_grey_lab(g) for g in greys]
-        expected[2] = sd10.Lab(expected[2].L + 3, expected[2].a, expected[2].b)   # one patch is off by dL 3
+        expected[2] = pysd10.Lab(expected[2].L + 3, expected[2].a, expected[2].b)   # one patch is off by dL 3
         loop = asyncio.get_running_loop()
         loop.call_later(0.05, ble.cb, None, bytearray([p.Event.MEASURE_BUTTON_PUSH]))  # user presses at row start
         compared = await dev.scan_row(expected, tolerance=1.0, formula="DE76", row=2, timeout=2)
@@ -433,18 +433,18 @@ def test_scan_row_plain_and_compared():
     notes = [w[8] for w in ble.writes if w[:3] == bytes([0, 0x43, p.Cmd.NOTIFY_RESULT])]
     assert notes == [1, 1]
     with pytest.raises(ValueError):
-        asyncio.run(sd10.SD10(ScanBle(greys), app_id=bytes(16)).scan_row(patches=19, wait_for_button=False))
+        asyncio.run(pysd10.SD10(ScanBle(greys), app_id=bytes(16)).scan_row(patches=19, wait_for_button=False))
 
 
 def test_scan_palette_rows_and_spot_patch():
     greys = [0.1 + 0.03 * k for k in range(23)]                   # palette of 23 colours -> rows of 10, 10, 3
     async def run():
         ble = ScanBle(greys)
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         colours = [_grey_lab(g, "D65", 10) for g in greys]
-        colours[12] = sd10.Lab(colours[12].L - 5, colours[12].a, colours[12].b)  # patch 13 printed wrong
-        await dev.set_group(sd10.ColorGroup(3, "Chart", colours, illuminant="D65", observer=10,
+        colours[12] = pysd10.Lab(colours[12].L - 5, colours[12].a, colours[12].b)  # patch 13 printed wrong
+        await dev.set_group(pysd10.ColorGroup(3, "Chart", colours, illuminant="D65", observer=10,
                                             diff_formula="DE2000", tolerance=1.0))
         loop = asyncio.get_running_loop()
         for t in (0.05, 0.3, 0.6):
@@ -466,18 +466,18 @@ def test_scan_palette_rows_and_spot_patch():
 def test_color_helpers_match_native():
     # values from libmunsell-lib.so (EPMColorDifference / EPMHarmonicLab / EPMLab2sRGB) under emulation
     a, b = (50, 2.6772, -79.7751), (50, 0, -82.7485)
-    assert sd10.delta_e(a, b, "DE94GA") == pytest.approx(1.395, abs=1e-3)
-    assert sd10.delta_e(a, b, "DE94T") == pytest.approx(1.423, abs=1e-3)
-    assert sd10.delta_e(a, b, "DE2000") == pytest.approx(2.0425, abs=1e-4)
-    assert sd10.color_scheme((50, 40, 20), "complementary")[0] == pytest.approx((69.25, -29.61, -9.54), abs=0.01)
-    assert len(sd10.color_scheme((50, 40, 20), "tetradic")) == 3
-    assert sd10.lab_to_hex((50, 40, 20)) == "#B95857"
-    assert sd10.median_lab([(1, 40, 100), (3, 10, 300), (2, 30, 200), (10, 20, 50)]) == (2.5, 25.0, 150.0)
+    assert pysd10.delta_e(a, b, "DE94GA") == pytest.approx(1.395, abs=1e-3)
+    assert pysd10.delta_e(a, b, "DE94T") == pytest.approx(1.423, abs=1e-3)
+    assert pysd10.delta_e(a, b, "DE2000") == pytest.approx(2.0425, abs=1e-4)
+    assert pysd10.color_scheme((50, 40, 20), "complementary")[0] == pytest.approx((69.25, -29.61, -9.54), abs=0.01)
+    assert len(pysd10.color_scheme((50, 40, 20), "tetradic")) == 3
+    assert pysd10.lab_to_hex((50, 40, 20)) == "#B95857"
+    assert pysd10.median_lab([(1, 40, 100), (3, 10, 300), (2, 30, 200), (10, 20, 50)]) == (2.5, 25.0, 150.0)
 
 
 def test_aco_round_trip(tmp_path):
-    path = sd10.export_aco(tmp_path / "x.aco", [(50.0, 10.25, -20.5), (100.0, -128.0, 127.0)], ["Wall", "Logo ü"])
-    assert sd10.read_aco(path) == [("Wall", (50.0, 10.25, -20.5)), ("Logo ü", (100.0, -128.0, 127.0))]
+    path = pysd10.export_aco(tmp_path / "x.aco", [(50.0, 10.25, -20.5), (100.0, -128.0, 127.0)], ["Wall", "Logo ü"])
+    assert pysd10.read_aco(path) == [("Wall", (50.0, 10.25, -20.5)), ("Logo ü", (100.0, -128.0, 127.0))]
     data = path.read_bytes()
     assert data[:4] == b"\x00\x01\x00\x02" and data[4:6] == b"\x00\x07"   # version 1, 2 colours, Lab space
 
@@ -515,7 +515,7 @@ class HistoryBle(FakeBle):
 def test_get_history_batches_and_after():
     async def run():
         ble = HistoryBle(230)
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         seen = []
         everything = await dev.get_history(progress=seen.append)
@@ -534,7 +534,7 @@ def test_get_history_batches_and_after():
 def test_measure_flow():
     async def run():
         ble = FakeBle()
-        dev = sd10.SD10(ble, app_id=bytes(16))
+        dev = pysd10.SD10(ble, app_id=bytes(16))
         await dev.start()
         await dev.open_session()
         result = await dev.measure(timeout=2)

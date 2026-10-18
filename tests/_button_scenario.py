@@ -7,10 +7,10 @@ import signal
 import sys
 import threading
 
-import sd10
-import sd10.client as c
-from sd10 import protocol as p
-from test_sd10 import FakeBle
+import pysd10
+import pysd10.client as c
+from pysd10 import protocol as p
+from test_pysd10 import FakeBle
 
 
 class ButtonBle(FakeBle):
@@ -57,7 +57,7 @@ _wd.daemon = True
 _wd.start()
 results = 0
 try:
-    with sd10.connect_sync(app_id=bytes(16)) as dev:
+    with pysd10.connect_sync(app_id=bytes(16)) as dev:
         if sys.argv[1] == "ctrl_c":
             # Same path as a real Ctrl+C (C-level SIGINT handler), which also wakes a blocked wait on Windows.
             threading.Timer(0.7, signal.raise_signal, (signal.SIGINT,)).start()

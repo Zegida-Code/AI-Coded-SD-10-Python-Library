@@ -19,9 +19,10 @@ from . import protocol as p
 from .color import ILLUMINANTS, Lab, _FORMULA_ALIASES, _illuminant_name, delta_e
 from .protocol import Cmd, ColorGroup, Event, MeasurementResult, Method, Setting, Status
 
-log = logging.getLogger("sd10")
+log = logging.getLogger("pysd10")
 
-DEFAULT_APP_ID_FILE = Path.home() / ".sd10_app_id"
+DEFAULT_APP_ID_FILE = Path.home() / ".pysd10_app_id"
+_LEGACY_APP_ID_FILE = Path.home() / ".sd10_app_id"
 
 
 # --------------------------------------------------------------------------- #
@@ -92,14 +93,22 @@ async def find_device(address: Optional[str] = None, timeout: float = 8.0) -> BL
 
 
 def load_app_id(path: Path = DEFAULT_APP_ID_FILE) -> bytes:
-    """16-byte host id sent when opening a session. Like the app, generate once and keep it."""
-    try:
-        return bytes.fromhex(path.read_text().strip())
-    except (OSError, ValueError):
-        app_id = secrets.token_bytes(16)
-        with contextlib.suppress(OSError):
-            path.write_text(app_id.hex())
-        return app_id
+    """16-byte host id sent when opening a session. Like the app, generate once and keep it
+    (an id saved by versions before 0.3, in ~/.sd10_app_id, is reused)."""
+    for candidate in (path, _LEGACY_APP_ID_FILE):
+        try:
+            app_id = bytes.fromhex(candidate.read_text().strip())
+        except (OSError, ValueError):
+            continue
+        if len(app_id) == 16:
+            if candidate != path:
+                with contextlib.suppress(OSError):
+                    path.write_text(app_id.hex())
+            return app_id
+    app_id = secrets.token_bytes(16)
+    with contextlib.suppress(OSError):
+        path.write_text(app_id.hex())
+    return app_id
 
 
 @dataclass
@@ -372,7 +381,7 @@ class SD10:
         return p.parse_tlv(payload)
 
     async def set_measurement_mode(self, **kwargs) -> None:
-        """Low-level mode setter; keyword arguments as :func:`sd10.protocol.encode_measurement_mode`."""
+        """Low-level mode setter; keyword arguments as :func:`pysd10.protocol.encode_measurement_mode`."""
         await self._expect_ok(p.encode_measurement_mode(**kwargs), "set measurement mode")
 
     async def notify_result(self, success: bool) -> None:
@@ -689,7 +698,7 @@ async def connect(address: Optional[str] = None, *, scan_timeout: float = 8.0, a
                   retry_delay: float = 1.5) -> AsyncIterator[SD10]:
     """Connect to an SD-10 (strongest one found if ``address`` is None) and open a session::
 
-        async with sd10.connect() as dev:
+        async with pysd10.connect() as dev:
             result = await dev.measure()
             print(result.lab)
 

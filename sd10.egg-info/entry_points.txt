@@ -1,2 +1,0 @@
-[console_scripts]
-sd10 = sd10.cli:main
