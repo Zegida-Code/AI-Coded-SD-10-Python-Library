@@ -1,4 +1,4 @@
-# sd10
+# pysd10
 
 Python client for the **Epson SD-10** spectrophotometer over Bluetooth LE: take measurements and get
 the 31-band spectrum (400–700 nm) and CIE L\*a\*b\* exactly as the Epson Spectrometer app computes it.
@@ -6,7 +6,7 @@ the 31-band spectrum (400–700 nm) and CIE L\*a\*b\* exactly as the Epson Spect
 ## Install
 
 ```
-pip install -e path\to\sd10_client
+pip install pysd10
 ```
 
 Requires Python 3.9+ and [bleak](https://github.com/hbldh/bleak) (installed automatically).
@@ -14,12 +14,12 @@ Requires Python 3.9+ and [bleak](https://github.com/hbldh/bleak) (installed auto
 ## Quick start (blocking — scripts, Jupyter)
 
 ```python
-import sd10
+import pysd10
 
-result = sd10.measure_once()            # connect, measure, disconnect
+result = pysd10.measure_once()            # connect, measure, disconnect
 print(result.lab)                       # Lab(L=..., a=..., b=...)
 
-with sd10.connect_sync() as dev:        # keep the connection open
+with pysd10.connect_sync() as dev:        # keep the connection open
     r = dev.measure(illuminant="D65", observer=10, m_factor=0)
     print(r.lab, r.lch, r.spectrum)
     print(r.lab_under("A", 2))          # same reading, other illuminant
@@ -31,10 +31,10 @@ with sd10.connect_sync() as dev:        # keep the connection open
 ## Async
 
 ```python
-import asyncio, sd10
+import asyncio, pysd10
 
 async def main():
-    async with sd10.connect() as dev:          # strongest SD-10, or connect("40:84:32:52:FD:0F")
+    async with pysd10.connect() as dev:          # strongest SD-10, or connect("40:84:32:52:FD:0F")
         print(await dev.get_info())
         r = await dev.measure()
         print(r.lab)
@@ -65,7 +65,7 @@ asyncio.run(main())
 | `dev.get_info()`, `get_status()`, `get_name()`, `get_serial()`, `get_firmware_version()` | device info |
 | `dev.get_setting(Setting.X)` / `set_setting(...)` | buzzer, panel direction, auto power-off, language |
 | `dev.set_clock()`, `dev.set_name(...)` | |
-| `dev.transact(frame)` | raw command (see `sd10.protocol`) |
+| `dev.transact(frame)` | raw command (see `pysd10.protocol`) |
 | `MeasurementResult` | `.lab`, `.lch`, `.lab_under(ill, obs)`, `.spectrum`, `.wavelengths`, `.timestamp`, `.to_dict()` |
 | `spectrum_to_lab(spectrum, illuminant, observer)` | offline conversion |
 | `delta_e(ref, sample, "DE2000" / "DE94GA" / "DE94T" / "DE76")`, `delta_e_2000`, `delta_e_94`, `delta_e_76` | colour difference (matches Epson's library) |
@@ -76,39 +76,32 @@ asyncio.run(main())
 
 Illuminants: D50, D65, A, F1, F2, F3, F7–F12. Observers: 2, 10.
 
-Errors derive from `sd10.SD10Error` (`DeviceNotFound`, `DeviceRefused`, `SD10Timeout`, `MeasurementFailed`,
+Errors derive from `pysd10.pysd10Error` (`DeviceNotFound`, `DeviceRefused`, `pysd10Timeout`, `MeasurementFailed`,
 `CoverClosed` — raised instead of measuring when the cover is shut, because the device would just repeat its
 previous reading).
-Enable `logging.getLogger("sd10").setLevel(logging.DEBUG)` to see all traffic.
+Enable `logging.getLogger("pysd10").setLevel(logging.DEBUG)` to see all traffic.
 
 ## Command line
 
 ```
-sd10 scan
-sd10 measure --illuminant D65 --observer 10 [--spectrum] [--json]
-sd10 listen          # L*a*b* for every button press
-sd10 history [--after ID] [--last N] [--json | --csv FILE]   # readings stored on the device
-sd10 history --aco FILE                       # stored readings as an Adobe Color Swatch
-sd10 scan-row --patches 6 | --expected row.json [--tolerance 2]
-sd10 chart SLOT [--per-row 10]                # scan a printed chart of a stored palette
-sd10 groups list | delete SLOT | export SLOT FILE(.json|.aco) | import FILE [--slot N]
-sd10 groups from-history SLOT NAME --ids 951,952,953 [--illuminant D65 --tolerance 2]
-sd10 info | calibrate | set-time | set-name NAME | raw ID TYPE [HEX]
+pysd10 scan
+pysd10 measure --illuminant D65 --observer 10 [--spectrum] [--json]
+pysd10 listen          # L*a*b* for every button press
+pysd10 history [--after ID] [--last N] [--json | --csv FILE]   # readings stored on the device
+pysd10 history --aco FILE                       # stored readings as an Adobe Color Swatch
+pysd10 scan-row --patches 6 | --expected row.json [--tolerance 2]
+pysd10 chart SLOT [--per-row 10]                # scan a printed chart of a stored palette
+pysd10 groups list | delete SLOT | export SLOT FILE(.json|.aco) | import FILE [--slot N]
+pysd10 groups from-history SLOT NAME --ids 951,952,953 [--illuminant D65 --tolerance 2]
+pysd10 info | calibrate | set-time | set-name NAME | raw ID TYPE [HEX]
 ```
 
-(`python -m sd10 ...` works without installing the script; global options such as `-a ADDRESS`
+(`python -m pysd10 ...` works without installing the script; global options such as `-a ADDRESS`
 and `-v` go before the command.)
 
 ## Notes
 
 - The SD-10 accepts one host at a time — close the Epson app on your phone first.
-- A random 16-byte host id is kept in `~/.sd10_app_id`, like the app does.
+- A random 16-byte host id is kept in `~/.pysd10_app_id`, like the app does.
 - L\*a\*b\* reproduces Epson's `librmcc` conversion to ~1e-6 ΔE; bands outside 400–700 nm count as
   zero, so a perfect white reads L\* ≈ 99.99, same as the app.
-
-## Tests
-
-```
-pip install -e path\to\sd10_client[test]
-pytest path\to\sd10_client\tests
-```
